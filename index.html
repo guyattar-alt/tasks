@@ -741,6 +741,8 @@ function parseWorkbook(wb) {
 function mergeImported(parsed) {
   let newTasks = 0, newSteps = 0;
   const changed = new Set();
+  const unmatched = [];   // משימות קיימות שלא נמצאו בקובץ
+  state.topics.forEach(tp => { if (!parsed.some(src => normAddr(src.name) === normAddr(tp.name))) tp.tasks.forEach(t => unmatched.push({ topic: tp, task: t })); });
   parsed.forEach(src => {
     let topic = state.topics.find(tp => normAddr(tp.name) === normAddr(src.name));
     if (!topic) { topic = { id: uid(), name: src.name, tasks: [] }; state.topics.push(topic); }
@@ -757,8 +759,9 @@ function mergeImported(parsed) {
         if (!t.steps.some(x => x.date === s.date && x.text === s.text)) { t.steps.push(s); newSteps++; changed.add(topic); }
       });
     });
+    existing.forEach(t => unmatched.push({ topic, task: t }));
   });
-  return { newTasks, newSteps, changed: [...changed] };
+  return { newTasks, newSteps, changed: [...changed], unmatched };
 }
 
 async function importFile(file) {
@@ -769,6 +772,20 @@ async function importFile(file) {
     if (!parsed.length) { await uiAlert('לא נמצאו משימות בקובץ.'); return; }
     const r = mergeImported(parsed);
     render();
+    // משימות פתוחות שכבר לא מופיעות בקובץ – מציעים לסמן כהושלמו (לא נמחקות)
+    const open = r.unmatched.filter(x => effStatus(x.task) !== 'closed');
+    let closedNow = 0;
+    if (open.length && await uiConfirm(`${open.length} משימות פתוחות בדשבורד לא מופיעות בקובץ (מתוכן ${open.filter(x => x.topic.name === 'הצעות מחיר').length} בהצעות מחיר).\nלסמן אותן כ"הושלם"? הן לא יימחקו, ואפשר להחזיר כל אחת.`)) {
+      const today = todayISO();
+      open.forEach(({ topic, task }) => {
+        task.status = 'closed';
+        task.steps = task.steps || [];
+        task.steps.push({ id: uid(), date: today, text: 'סומן כהושלם – לא מופיע בקובץ האקסל המעודכן' });
+        r.changed.push(topic); closedNow++;
+      });
+      r.changed = [...new Set(r.changed)];
+      render();
+    }
     if (store.mode === 'cloud') {
       const failed = await writeTopicsSequential(r.changed, 'שומר בשרת');
       if (failed.length) {
@@ -777,7 +794,7 @@ async function importFile(file) {
       }
       setBanner('');
     } else saveLocal();
-    await uiAlert(`הייבוא הסתיים: ${r.newTasks} משימות חדשות ו-${r.newSteps} שלבים חדשים נוספו ב-${r.changed.length} תחומים. משימות קיימות נשמרו כפי שהן.`);
+    await uiAlert(`הייבוא הסתיים: ${r.newTasks} משימות חדשות ו-${r.newSteps} שלבים חדשים נוספו` + (closedNow ? `, ו-${closedNow} משימות שלא בקובץ סומנו כהושלמו.` : '. משימות קיימות נשמרו כפי שהן.'));
   } catch (err) {
     await uiAlert('שגיאה בקריאת הקובץ: ' + (err && err.message));
   }
