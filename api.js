@@ -120,9 +120,10 @@
         onSnapshot(cb, err) {
           const l = { collection: name, cb, err };
           listeners.add(l);
-          if (docs.size) setTimeout(() => cb(snapshotFor(name, true)), 0);   // מה שנשמר במכשיר – מיד
+          // אם הנתונים כבר הגיעו מהשרת – מוסרים אותם מיד כמאושרים; אחרת מציגים את מה שנשמר במכשיר עד שיגיעו
+          if (loaded) setTimeout(() => cb(snapshotFor(name, false)), 0);
+          else if (docs.size) setTimeout(() => cb(snapshotFor(name, true)), 0);
           if (!pollTimer) poll();
-          else if (loaded) setTimeout(() => cb(snapshotFor(name, false)), 0);
           return () => listeners.delete(l);
         }
       };

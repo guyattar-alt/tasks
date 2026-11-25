@@ -1,6 +1,6 @@
 // שומר את קבצי האפליקציה במכשיר כדי שתיפתח מהר וגם בלי אינטרנט.
 // הנתונים עצמם לא נשמרים כאן – הם מגיעים מהשרת (ונשמרים במכשיר ע"י api.js).
-const CACHE = 'tasks-app-v1';
+const CACHE = 'tasks-app-v2';
 const SHELL = ['./', 'index.html', 'api.js', 'config.js', 'manifest.webmanifest',
   'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 const XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
